@@ -3,6 +3,7 @@
 #include "json.hpp"
 #include "PID.h"
 #include <math.h>
+#include <limits.h>
 
 // for convenience
 using json = nlohmann::json;
@@ -28,14 +29,60 @@ std::string hasData(std::string s) {
   return "";
 }
 
+// Equivalent of Make_Robot()
+void reset_simulator(uWS::WebSocket<uWS::SERVER>& ws)
+{
+  std::string msg("42[\"reset\", {}]");
+  ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+}
+
+// PID control
+void run(PID &pid,double &cte, double &steer_value, double &throttle, double& speed, double &total_distance, double &current_error){
+  pid.UpdateError(cte);
+
+  steer_value = - (pid.Kp * pid.p_error) - (pid.Ki * pid.i_error) - (pid.Kd * pid.d_error);
+
+  // Limit the steering angle between [-1, 1]
+  if (steer_value > 1.0) {
+    steer_value = 1.0;
+  } else if (steer_value < -1.0) {
+    steer_value = -1.0;
+  }
+  // throttle is a function of steering value to avoid going out of the track
+  // throttle = 0.3; // constant speed 0.3
+  // throttle = 0.8 - fabs(steer_value); // linear model with 0.3 average
+  throttle = -0.45*pow(steer_value,2)+0.45; // quadratic model with 0.3 average
+
+  // count the distance travelled
+  total_distance += speed;
+
+  current_error = pid.TotalError()/total_distance;
+}
+
 int main()
 {
   uWS::Hub h;
 
   PID pid;
   // TODO: Initialize the pid variable.
+  std::vector<double> p = {0.1, 0.001,10.0};
+  std::vector<double> dp = {0.1, 0.001,10.0};
+  pid.Init(p[0], p[1], p[2]);
+  double sum_dp = 0.0;
+  for(unsigned int i; i<dp.size(); i++){
+    sum_dp += dp[i];
+  }
+  int param_index = 2;
 
-  h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  bool twiddle = true;
+  unsigned int iter = 0;
+  double best_error = std::numeric_limits<double>::max();
+  double current_error = 0;
+  double total_distance = 0.0 ;
+  const unsigned int max_iter = 100;
+
+  h.onMessage([&pid, &p, &dp, &twiddle, &iter, &best_error, &current_error, &sum_dp, &total_distance, &max_iter, &param_index](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -51,19 +98,61 @@ int main()
           double speed = std::stod(j[1]["speed"].get<std::string>());
           double angle = std::stod(j[1]["steering_angle"].get<std::string>());
           double steer_value;
+          double throttle;
+
           /*
           * TODO: Calcuate steering value here, remember the steering value is
           * [-1, 1].
           * NOTE: Feel free to play around with the throttle and speed. Maybe use
           * another PID controller to control the speed!
           */
-          
+
+          // Twiddle algorithm
+          if(twiddle && iter<max_iter){
+            if(iter > 0 && sum_dp>0.0001){
+              double steer_value;
+              p[param_index] += dp[param_index];
+              pid.Init(p[0], p[1], p[2]);
+              reset_simulator(ws);
+              run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+              if(current_error < best_error){
+                best_error = current_error;
+                dp[param_index] *= 1.1;
+              } 
+              else{
+                p[param_index] -= 2*dp[param_index];
+                pid.Init(p[0], p[1], p[2]);
+                reset_simulator(ws);
+                run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+                if(current_error < best_error){
+                  best_error = current_error;
+                  dp[param_index] *= 1.1;
+                }
+                else{
+                  p[param_index] += dp[param_index];
+                  dp[param_index] *= 0.9;
+                }
+              }
+            }
+            best_error = pid.TotalError();
+            param_index = (param_index+1)% p.size();
+            iter ++;
+          }else{
+            run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+          }
+
           // DEBUG
-          std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
+          // std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
+          if (iter > max_iter){
+            std::cout << "CTE: " << cte << " Steering Value: " << steer_value << " speed: " << speed << std::endl;
+          } else{
+            std::cout << "iter: " << iter << std::endl;
+          }
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = 0.3;
+          msgJson["throttle"] = throttle; // variable speed
+          // msgJson["throttle"] = 0.3; // fixed speed
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);

@@ -17,6 +17,12 @@ public:
   double Ki;
   double Kd;
 
+  double prev_cte; 
+  bool prev_cte_valid;
+  double int_cte; 
+
+  double L2_error;
+
   /*
   * Constructor
   */
