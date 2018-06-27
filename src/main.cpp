@@ -49,9 +49,9 @@ void run(PID &pid,double &cte, double &steer_value, double &throttle, double& sp
     steer_value = -1.0;
   }
   // throttle is a function of steering value to avoid going out of the track
-  // throttle = 0.3; // constant speed 0.3
+  throttle = 0.3; // constant speed 0.3
   // throttle = 0.8 - fabs(steer_value); // linear model with 0.3 average
-  throttle = -0.45*pow(steer_value,2)+0.45; // quadratic model with 0.3 average
+  // throttle = -0.45*pow(steer_value,2)+0.45; // quadratic model with 0.3 average
 
   // count the distance travelled
   total_distance += speed;
@@ -108,35 +108,41 @@ int main()
           */
 
           // Twiddle algorithm
-          if(twiddle && iter<max_iter){
-            if(iter > 0 && sum_dp>0.0001){
-              double steer_value;
-              p[param_index] += dp[param_index];
-              pid.Init(p[0], p[1], p[2]);
-              reset_simulator(ws);
-              run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
-              if(current_error < best_error){
-                best_error = current_error;
-                dp[param_index] *= 1.1;
-              } 
-              else{
-                p[param_index] -= 2*dp[param_index];
+          if(twiddle){
+            if(iter<max_iter){
+              if(iter > 0 && sum_dp>0.0001){
+                double steer_value;
+                p[param_index] += dp[param_index];
                 pid.Init(p[0], p[1], p[2]);
                 reset_simulator(ws);
                 run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
                 if(current_error < best_error){
                   best_error = current_error;
                   dp[param_index] *= 1.1;
-                }
+                } 
                 else{
-                  p[param_index] += dp[param_index];
-                  dp[param_index] *= 0.9;
+                  p[param_index] -= 2*dp[param_index];
+                  pid.Init(p[0], p[1], p[2]);
+                  reset_simulator(ws);
+                  run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+                  if(current_error < best_error){
+                    best_error = current_error;
+                    dp[param_index] *= 1.1;
+                  }
+                  else{
+                    p[param_index] += dp[param_index];
+                    dp[param_index] *= 0.9;
+                  }
                 }
+              }            
+              param_index = (param_index+1)% p.size();
+              for(unsigned int i; i<dp.size(); i++){
+                sum_dp += dp[i];
               }
+              iter ++;
+            }else{
+              run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
             }
-            best_error = pid.TotalError();
-            param_index = (param_index+1)% p.size();
-            iter ++;
           }else{
             run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
           }
