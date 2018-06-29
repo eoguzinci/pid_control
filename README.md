@@ -3,6 +3,37 @@ Self-Driving Car Engineer Nanodegree Program
 
 ---
 
+Welcome to the PID control project of the Udacity Self-Driving Nanodegree. In this project, we will learn how to develop a basic PID control algorithm in order to keep our vehicle as close as possible to the middle of the track. For this purpose we will use the car as our plant and the steering value as the controlled parameter by measuring offset between the position of our vehicle and mid-plane of the track. This is called cross-track error. In a PID control algorithm, we are not only taking the cross-track error(cte), which is the proportional error, into account only, but also the rate of change of cte and integral over cte error over time, because using only proportional error causes really oscilations around the middle of the track with high amplitude.
+```
+p_error = cte;
+```
+Therefore, we add the derivative term to be sure that our solution converges.
+```
+d_error = cte_now - cte_prev;
+```
+However, the control of the proporional and derivative error does not suffice if there is a systematic bias in the system. Therefore, a control over the integral part is necessary to converge to the true solution.
+```
+i_error = 0;
+while(total_error<limit_error){
+  i_error += cte;
+}
+```
+
+__P control:__ is the most significant contol which controls the steering value directly negatively proportional to cross-track error. This means how much we are away from the center of track, we steer to the negative direction of offset to retrieve our position back in the center. Without this control gain, we are lost.
+
+__D control__: another important error reduces oscillations and ensures the convergence. Without this control gain, we are not able to settle in the center of the road. But this alone does not help as I have mentioned because if there is a systematic bias, we are not able to converge to the center of the road, but center+systematic bias.
+
+__I control__: this control gain avoids the increase in the cumulative error. This will result in the proportional effect diminishing as the error decreases, but this is compensated for by the growing integral effect. 
+
+```
+steering_angle = -Kp * p_error - Kd * d_error - Ki * i_error
+```
+
+__Note that__ here we only discussed the control on the steering angle value, so the lateral motion. However, it is possible to apply this control mechanism to any kind of motion including longitudinal motion of the car. Therefore, we were able to apply another PID controller to the thottle value. But instead, I preferred to relate the throttle to the steering angle, as we should break in the curves. There are constant(throttle = c), linear(throttle = a*steer+b) and quadratic (throttle = a*steer^2+b) throttle models within the code for user to select any.
+
+How to find the best P,I,D parameters for a controller to perform optimal is hard question. There are many optimization tools, but in this code we will use Twiddle algorithm. In this algorithm, we tune parameters back and forth to find the minimum error value for single step and iterate the algorithm in that time step to find the lowest L2-error in cte. Here we mostly yield to 
+`Kp, Ki, Kd = {0.1, 0.001, 10.0}` values. Here is a video of the simulation with this control gains.
+
 ## Dependencies
 
 * cmake >= 3.5
