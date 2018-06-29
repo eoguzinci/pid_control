@@ -31,6 +31,8 @@ steering_angle = -Kp * p_error - Kd * d_error - Ki * i_error
 
 __Note that__ here we only discussed the control on the steering angle value, so the lateral motion. However, it is possible to apply this control mechanism to any kind of motion including longitudinal motion of the car. Therefore, we were able to apply another PID controller to the thottle value. But instead, I preferred to relate the throttle to the steering angle, as we should break in the curves. There are constant(throttle = c), linear(throttle = a*steer+b) and quadratic (throttle = a*steer^2+b) throttle models within the code for user to select any.
 
+#### Parameter Tuning
+
 How to find the best P,I,D parameters for a controller to perform optimal is hard question. There are many optimization tools, but in this code we will use Twiddle algorithm. In this algorithm, we tune parameters back and forth to find the minimum error value for single step and iterate the algorithm in that time step to find the lowest L2-error in cte. Here we mostly yield to 
 `Kp, Ki, Kd = {0.1, 0.001, 10.0}` values. Here is a video of the simulation with this control gains.
 
