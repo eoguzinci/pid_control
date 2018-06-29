@@ -34,7 +34,8 @@ __Note that__ here we only discussed the control on the steering angle value, so
 #### Parameter Tuning
 
 How to find the best P,I,D parameters for a controller to perform optimal is hard question. There are many optimization tools, but in this code we will use Twiddle algorithm. In this algorithm, we tune parameters back and forth to find the minimum error value for single step and iterate the algorithm in that time step to find the lowest L2-error in cte. Here we mostly yield to 
-`Kp, Ki, Kd = {0.1, 0.001, 10.0}` values. Here is a video of the simulation with this control gains.
+`Kp, Ki, Kd = {0.1, 0.001, 10.0}` values. [Here](PIDcont.mp4) is a video of the simulation with this control gains:
+
 
 ## Dependencies
 
