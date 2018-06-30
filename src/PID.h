@@ -47,6 +47,8 @@ public:
   * Calculate the total PID error.
   */
   double TotalError();
+  //Run PID
+  void Run(double &cte, double &steer_value, double &throttle, double& speed, double &current_error);
 };
 
 #endif /* PID_H */

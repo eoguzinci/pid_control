@@ -36,27 +36,6 @@ void reset_simulator(uWS::WebSocket<uWS::SERVER>& ws)
   ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 }
 
-// PID control
-void run(PID &pid,double &cte, double &steer_value, double &throttle, double& speed, double &total_distance, double &current_error){
-  pid.UpdateError(cte);
-
-  steer_value = - (pid.Kp * pid.p_error) - (pid.Ki * pid.i_error) - (pid.Kd * pid.d_error);
-
-  // Limit the steering angle between [-1, 1]
-  if (steer_value > 1.0) {
-    steer_value = 1.0;
-  } else if (steer_value < -1.0) {
-    steer_value = -1.0;
-  }
-  // throttle is a function of steering value to avoid going out of the track
-  throttle = 0.3; // constant speed 0.3
-  // throttle = 0.8 - fabs(steer_value); // linear model with 0.3 average
-  // throttle = -0.45*pow(steer_value,2)+0.45; // quadratic model with 0.3 average
-
-  pid.UpdateError(cte);
-  current_error = pid.TotalError();
-}
-
 int main()
 {
   uWS::Hub h;
@@ -114,7 +93,7 @@ int main()
                 p[param_index] += dp[param_index];
                 pid.Init(p[0], p[1], p[2]);
                 reset_simulator(ws);
-                run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+                pid.Run(cte, steer_value, throttle, speed, current_error);
                 std::cout << "++dp: curr_error=" << current_error << " best_error="<< best_error << std::endl;
                 if(current_error < best_error){
                   best_error = current_error;
@@ -124,7 +103,7 @@ int main()
                   p[param_index] -= 2*dp[param_index];
                   pid.Init(p[0], p[1], p[2]);
                   reset_simulator(ws);
-                  run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+                  pid.Run(cte, steer_value, throttle, speed, current_error);
                   std::cout << "--dp: curr_error=" << current_error << " best_error="<< best_error << std::endl;
                   if(current_error < best_error){
                     best_error = current_error;
@@ -137,7 +116,7 @@ int main()
                   }
                 }
               }else if(iter == 0){
-                run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+                pid.Run(cte, steer_value, throttle, speed, current_error);
                 best_error = current_error;
               }            
               param_index = (param_index+1)% p.size();
@@ -147,10 +126,10 @@ int main()
               }
               iter ++;
             }else{
-              run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+              pid.Run(cte, steer_value, throttle, speed, current_error);
             }
           }else{
-            run(pid, cte, steer_value, throttle, speed, total_distance, current_error);
+            pid.Run(cte, steer_value, throttle, speed, current_error);
           }
 
           // DEBUG

@@ -43,3 +43,29 @@ double PID::TotalError() {
 	return L2_error;
 }
 
+void PID::Run(double &cte, double &steer_value, double &throttle, double& speed, double &current_error){
+
+  UpdateError(cte);
+  current_error = TotalError();
+
+  steer_value = - (Kp * p_error) - (Ki * i_error) - (Kd * d_error);
+
+  // Limit the steering angle between [-1, 1]
+  if (steer_value > 1.0) {
+    steer_value = 1.0;
+  } else if (steer_value < -1.0) {
+    steer_value = -1.0;
+  }
+
+  // throttle is a function of steering value and speed to avoid going out of the track
+  if(speed<25){
+    throttle = 0.3; // constant speed 0.3
+  // throttle = 0.8 - fabs(steer_value); // linear model with 0.3 average
+  // throttle = -0.45*pow(steer_value,2)+0.45; // quadratic model with 0.3 average  
+  }
+  else{
+    throttle = 0.0;
+  }
+  
+
+}
